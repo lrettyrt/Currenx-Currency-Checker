@@ -7,7 +7,9 @@
     <meta name="description" content="Currenx — отслеживание курсов валют и криптовалют в реальном времени">
     <title>Currenx — Currency Tracker</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💱</text></svg>">
+    <link rel="icon" href="icon-192.png" type="image/png">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <link rel="manifest" href="manifest.json">
     <style>
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: #1e293b; border-radius: 3px; }
@@ -478,6 +480,11 @@
         swapBtn.addEventListener('click', () => { const tmp = convertFrom.value; convertFrom.value = convertTo.value; convertTo.value = tmp; runConversion(); });
         document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeSettings(); });
 
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('./service-worker.js', { scope: './' })
+                .then(() => console.log('SW registered'))
+                .catch(err => console.log('SW failed:', err));
+        }
         populateConverterSelects();
         renderCards();
         loadRates();
