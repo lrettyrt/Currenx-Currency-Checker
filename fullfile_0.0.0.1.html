@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0f172a">
+    <meta name="description" content="Currenx — отслеживание курсов валют и криптовалют в реальном времени">
+    <title>Currenx — Currency Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💱</text></svg>">
+    <style>
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #1e293b; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+
+        .currency-card { animation: fadeIn 0.3s ease-out; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .pulse-loading { animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+        .toggle-switch {
+            position: relative; width: 44px; height: 24px;
+            background: #475569; border-radius: 12px; cursor: pointer; transition: background 0.3s;
+        }
+        .toggle-switch.active { background: #06b6d4; }
+        .toggle-switch::after {
+            content: ''; position: absolute; top: 2px; left: 2px;
+            width: 20px; height: 20px; background: white;
+            border-radius: 50%; transition: transform 0.3s;
+        }
+        .toggle-switch.active::after { transform: translateX(20px); }
+
+        .gradient-border {
+            position: relative; background: #1e293b; border-radius: 0.75rem;
+        }
+        .gradient-border::before {
+            content: ''; position: absolute; inset: -1px;
+            border-radius: 0.75rem; padding: 1px;
+            background: linear-gradient(135deg, #06b6d4, #3b82f6, #8b5cf6);
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none;
+        }
+
+        .price-up { color: #34d399; }
+        .price-down { color: #f87171; }
+    </style>
+</head>
+<body class="bg-slate-900 text-gray-100 min-h-screen font-sans">
+    <header class="sticky top-0 z-50 bg-slate-800/80 backdrop-blur-md border-b border-slate-700 shadow-lg">
+        <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+            <h1 class="text-xl font-bold bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
+                💱 Currenx
+            </h1>
+            <div class="flex items-center gap-3">
+                <div class="relative">
+                    <input type="text" id="searchInput" placeholder="Поиск тикера..."
+                        class="bg-slate-700 border border-slate-600 rounded-lg px-3 py-1.5 text-sm w-48 focus:outline-none focus:ring-2 focus:ring-cyan-500 placeholder-slate-400">
+                    <svg class="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                    </svg>
+                </div>
+                <button id="settingsBtn" class="p-2 rounded-lg hover:bg-slate-700 transition-colors" title="Настройки">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-6xl mx-auto px-4 py-6">
+        <section id="cardsContainer" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+            <div id="emptyState" class="col-span-full text-center py-12 text-slate-400">
+                <p class="text-4xl mb-3">📊</p>
+                <p class="text-lg">Выберите валюты для отслеживания</p>
+                <p class="text-sm mt-1">Нажмите ⚙️ для настройки</p>
+            </div>
+        </section>
+
+        <section class="bg-slate-800 rounded-xl p-6 border border-slate-700 shadow-lg">
+            <h2 class="text-lg font-semibold mb-4 flex items-center gap-2">
+                <span>🔄</span> Конвертер валют
+            </h2>
+            <div class="flex flex-col sm:flex-row gap-4 items-end">
+                <div class="flex-1 w-full">
+                    <label class="block text-sm text-slate-400 mb-1">Сумма</label>
+                    <input type="number" id="convertAmount" value="1" min="0" step="any"
+                        class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-cyan-500">
+                </div>
+                <div class="flex-1 w-full">
+                    <label class="block text-sm text-slate-400 mb-1">Из</label>
+                    <select id="convertFrom"
+                        class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-cyan-500">
+                    </select>
+                </div>
+                <button id="swapBtn" class="p-2 rounded-lg bg-slate-700 hover:bg-slate-600 transition-colors shrink-0" title="Поменять местами">
+                    ⇄
+                </button>
+                <div class="flex-1 w-full">
+                    <label class="block text-sm text-slate-400 mb-1">В</label>
+                    <select id="convertTo"
+                        class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-cyan-500">
+                    </select>
+                </div>
+                <div class="flex-1 w-full">
+                    <label class="block text-sm text-slate-400 mb-1">Результат</label>
+                    <div id="convertResult" class="bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 font-mono text-cyan-400 min-h-[42px] flex items-center">
+                        —
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Settings Modal -->
+    <div id="settingsModal" class="fixed inset-0 z-[100] hidden">
+        <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" id="modalOverlay"></div>
+        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-slate-800 rounded-xl p-6 w-full max-w-md border border-slate-700 shadow-2xl">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-lg font-semibold">⚙️ Выбор валют</h2>
+                <button id="closeModal" class="p-1 rounded hover:bg-slate-700 transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+            <div id="currencyToggles" class="space-y-2 max-h-80 overflow-y-auto pr-2">
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div id="toast" class="fixed bottom-4 right-4 bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 shadow-lg transform translate-y-20 opacity-0 transition-all duration-300 z-[200]">
+        <p id="toastMsg" class="text-sm"></p>
+    </div>
+
+    <footer class="text-center py-4 text-slate-500 text-xs">
+        Currenx v0.0.1 • Данные: CoinGecko & ExchangeRate-API
+    </footer>
+
+    <script>
+    /**
+     * Currenx — API Module
+     */
+    const API = (() => {
+        const COINGECKO_BASE = 'https://api.coingecko.com/api/v3';
+        const EXCHANGERATE_BASE = 'https://open.er-api.com/v6/latest';
+
+        const CRYPTO_IDS = {
+            BTC: 'bitcoin', ETH: 'ethereum', SOL: 'solana', BNB: 'binancecoin',
+            XRP: 'ripple', ADA: 'cardano', DOGE: 'dogecoin', DOT: 'polkadot',
+            MATIC: 'matic-network', LTC: 'litecoin', AVAX: 'avalanche-2',
+            LINK: 'chainlink', UNI: 'uniswap', ATOM: 'cosmos', TON: 'the-open-network',
+        };
+
+        const FIAT_SYMBOLS = ['USD', 'EUR', 'GBP', 'JPY', 'RUB', 'CNY', 'CHF', 'CAD', 'AUD', 'TRY'];
+
+        let cachedFiatRates = null;
+        let cachedCryptoData = null;
+        let lastFiatFetch = 0;
+        let lastCryptoFetch = 0;
+        const CACHE_TTL = 60000;
+
+        async function fetchFiatRates(base = 'USD') {
+            const now = Date.now();
+            if (cachedFiatRates && (now - lastFiatFetch) < CACHE_TTL) return cachedFiatRates;
+            try {
+                const res = await fetch(`${EXCHANGERATE_BASE}/${base}`);
+                if (!res.ok) throw new Error(`Fiat API error: ${res.status}`);
+                const data = await res.json();
+                cachedFiatRates = data.rates;
+                lastFiatFetch = now;
+                return cachedFiatRates;
+            } catch (err) {
+                console.error('Failed to fetch fiat rates:', err);
+                return cachedFiatRates || {};
+            }
+        }
+
+        async function fetchCryptoPrices() {
+            const now = Date.now();
+            if (cachedCryptoData && (now - lastCryptoFetch) < CACHE_TTL) return cachedCryptoData;
+            try {
+                const ids = Object.values(CRYPTO_IDS).join(',');
+                const res = await fetch(`${COINGECKO_BASE}/simple/price?ids=${ids}&vs_currencies=usd&include_24hr_change=true`);
+                if (!res.ok) throw new Error(`CoinGecko API error: ${res.status}`);
+                const data = await res.json();
+                cachedCryptoData = data;
+                lastCryptoFetch = now;
+                return cachedCryptoData;
+            } catch (err) {
+                console.error('Failed to fetch crypto prices:', err);
+                return cachedCryptoData || {};
+            }
+        }
+
+        function getCryptoId(ticker) { return CRYPTO_IDS[ticker.toUpperCase()] || null; }
+        function isCrypto(ticker) { return ticker.toUpperCase() in CRYPTO_IDS; }
+        function isFiat(ticker) { return FIAT_SYMBOLS.includes(ticker.toUpperCase()); }
+
+        async function convert(amount, from, to) {
+            from = from.toUpperCase();
+            to = to.toUpperCase();
+            const bothFiat = isFiat(from) && isFiat(to);
+
+            if (bothFiat) {
+                const rates = await fetchFiatRates('USD');
+                if (!rates[from] || !rates[to]) return null;
+                return (amount / rates[from]) * rates[to];
+            }
+
+            const cryptoData = await fetchCryptoPrices();
+            const fiatRates = await fetchFiatRates('USD');
+
+            function toUsd(ticker, amt) {
+                if (ticker === 'USD') return amt;
+                if (isFiat(ticker)) return fiatRates[ticker] ? amt / fiatRates[ticker] : null;
+                const id = getCryptoId(ticker);
+                return (id && cryptoData[id]) ? amt * cryptoData[id].usd : null;
+            }
+
+            function fromUsd(ticker, usdAmt) {
+                if (ticker === 'USD') return usdAmt;
+                if (isFiat(ticker)) return fiatRates[ticker] ? usdAmt * fiatRates[ticker] : null;
+                const id = getCryptoId(ticker);
+                return (id && cryptoData[id] && cryptoData[id].usd) ? usdAmt / cryptoData[id].usd : null;
+            }
+
+            const usdValue = toUsd(from, amount);
+            if (usdValue === null) return null;
+            return fromUsd(to, usdValue);
+        }
+
+        function getAllTickers() { return [...FIAT_SYMBOLS, ...Object.keys(CRYPTO_IDS)]; }
+
+        return { fetchFiatRates, fetchCryptoPrices, getCryptoId, isCrypto, isFiat, convert, getAllTickers, CRYPTO_IDS, FIAT_SYMBOLS };
+    })();
+
+    /**
+     * Currenx — App Module
+     */
+    (() => {
+        const CURRENCIES = {
+            USD: { name: 'Доллар США', symbol: '$', flag: '🇺🇸', type: 'fiat' },
+            EUR: { name: 'Евро', symbol: '€', flag: '🇪🇺', type: 'fiat' },
+            GBP: { name: 'Фунт стерлингов', symbol: '£', flag: '🇬🇧', type: 'fiat' },
+            JPY: { name: 'Японская йена', symbol: '¥', flag: '🇯🇵', type: 'fiat' },
+            RUB: { name: 'Российский рубль', symbol: '₽', flag: '🇷🇺', type: 'fiat' },
+            CNY: { name: 'Китайский юань', symbol: '¥', flag: '🇨🇳', type: 'fiat' },
+            CHF: { name: 'Швейцарский франк', symbol: 'Fr', flag: '🇨🇭', type: 'fiat' },
+            CAD: { name: 'Канадский доллар', symbol: 'C$', flag: '🇨🇦', type: 'fiat' },
+            AUD: { name: 'Австралийский доллар', symbol: 'A$', flag: '🇦🇺', type: 'fiat' },
+            TRY: { name: 'Турецкая лира', symbol: '₺', flag: '🇹🇷', type: 'fiat' },
+            BTC: { name: 'Bitcoin', symbol: '₿', flag: '🪙', type: 'crypto' },
+            ETH: { name: 'Ethereum', symbol: 'Ξ', flag: '💎', type: 'crypto' },
+            SOL: { name: 'Solana', symbol: 'SOL', flag: '☀️', type: 'crypto' },
+            BNB: { name: 'BNB', symbol: 'BNB', flag: '🔶', type: 'crypto' },
+            XRP: { name: 'Ripple', symbol: 'XRP', flag: '💧', type: 'crypto' },
+            ADA: { name: 'Cardano', symbol: 'ADA', flag: '🔵', type: 'crypto' },
+            DOGE: { name: 'Dogecoin', symbol: 'DOGE', flag: '🐕', type: 'crypto' },
+            DOT: { name: 'Polkadot', symbol: 'DOT', flag: '⚪', type: 'crypto' },
+            MATIC: { name: 'Polygon', symbol: 'MATIC', flag: '🟣', type: 'crypto' },
+            LTC: { name: 'Litecoin', symbol: 'LTC', flag: '🥈', type: 'crypto' },
+            AVAX: { name: 'Avalanche', symbol: 'AVAX', flag: '🔺', type: 'crypto' },
+            LINK: { name: 'Chainlink', symbol: 'LINK', flag: '🔗', type: 'crypto' },
+            UNI: { name: 'Uniswap', symbol: 'UNI', flag: '🦄', type: 'crypto' },
+            ATOM: { name: 'Cosmos', symbol: 'ATOM', flag: '⚛️', type: 'crypto' },
+            TON: { name: 'Toncoin', symbol: 'TON', flag: '💠', type: 'crypto' },
+        };
+
+        const DEFAULT_ENABLED = ['USD', 'EUR', 'BTC', 'ETH', 'SOL'];
+        const STORAGE_KEY = 'currenx_enabled';
+
+        let enabledCurrencies = loadEnabled();
+        let ratesData = {};
+        let refreshTimer = null;
+
+        const cardsContainer = document.getElementById('cardsContainer');
+        const emptyState = document.getElementById('emptyState');
+        const searchInput = document.getElementById('searchInput');
+        const settingsBtn = document.getElementById('settingsBtn');
+        const settingsModal = document.getElementById('settingsModal');
+        const closeModal = document.getElementById('closeModal');
+        const modalOverlay = document.getElementById('modalOverlay');
+        const currencyToggles = document.getElementById('currencyToggles');
+        const convertAmount = document.getElementById('convertAmount');
+        const convertFrom = document.getElementById('convertFrom');
+        const convertTo = document.getElementById('convertTo');
+        const convertResult = document.getElementById('convertResult');
+        const swapBtn = document.getElementById('swapBtn');
+        const toast = document.getElementById('toast');
+        const toastMsg = document.getElementById('toastMsg');
+
+        function loadEnabled() {
+            try { const s = localStorage.getItem(STORAGE_KEY); return s ? JSON.parse(s) : [...DEFAULT_ENABLED]; }
+            catch { return [...DEFAULT_ENABLED]; }
+        }
+
+        function saveEnabled() { localStorage.setItem(STORAGE_KEY, JSON.stringify(enabledCurrencies)); }
+
+        function showToast(msg) {
+            toastMsg.textContent = msg;
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            toast.classList.add('translate-y-0', 'opacity-100');
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+                toast.classList.remove('translate-y-0', 'opacity-100');
+            }, 2500);
+        }
+
+        function openSettings() { renderToggles(); settingsModal.classList.remove('hidden'); }
+        function closeSettings() { settingsModal.classList.add('hidden'); }
+
+        function renderToggles(filter = '') {
+            currencyToggles.innerHTML = '';
+            const lf = filter.toLowerCase();
+            const groups = [
+                { label: '💵 Фиатные валюты', tickers: Object.keys(CURRENCIES).filter(t => CURRENCIES[t].type === 'fiat') },
+                { label: '🪙 Криптовалюты', tickers: Object.keys(CURRENCIES).filter(t => CURRENCIES[t].type === 'crypto') },
+            ];
+            groups.forEach(group => {
+                const filtered = group.tickers.filter(t => !lf || t.toLowerCase().includes(lf) || CURRENCIES[t].name.toLowerCase().includes(lf));
+                if (!filtered.length) return;
+                const heading = document.createElement('div');
+                heading.className = 'text-xs text-slate-400 font-semibold uppercase tracking-wider mt-3 mb-1';
+                heading.textContent = group.label;
+                currencyToggles.appendChild(heading);
+                filtered.forEach(ticker => {
+                    const cur = CURRENCIES[ticker];
+                    const isActive = enabledCurrencies.includes(ticker);
+                    const row = document.createElement('div');
+                    row.className = 'flex items-center justify-between py-2 px-3 rounded-lg hover:bg-slate-700/50 transition-colors';
+                    row.innerHTML = `
+                        <div class="flex items-center gap-3">
+                            <span class="text-xl">${cur.flag}</span>
+                            <div><span class="font-medium text-sm">${ticker}</span><span class="text-slate-400 text-xs ml-1">${cur.name}</span></div>
+                        </div>
+                        <div class="toggle-switch ${isActive ? 'active' : ''}" data-ticker="${ticker}"></div>`;
+                    const toggle = row.querySelector('.toggle-switch');
+                    toggle.addEventListener('click', () => {
+                        const t = toggle.dataset.ticker;
+                        if (enabledCurrencies.includes(t)) {
+                            enabledCurrencies = enabledCurrencies.filter(c => c !== t);
+                            toggle.classList.remove('active');
+                            showToast(`${t} убран`);
+                        } else {
+                            enabledCurrencies.push(t);
+                            toggle.classList.add('active');
+                            showToast(`${t} добавлен`);
+                        }
+                        saveEnabled(); renderCards();
+                    });
+                    currencyToggles.appendChild(row);
+                });
+            });
+        }
+
+        function renderCards() {
+            const cards = cardsContainer.querySelectorAll('.currency-card');
+            cards.forEach(c => c.remove());
+            if (!enabledCurrencies.length) { emptyState.classList.remove('hidden'); return; }
+            emptyState.classList.add('hidden');
+            enabledCurrencies.forEach(ticker => {
+                const cur = CURRENCIES[ticker];
+                if (!cur) return;
+                cardsContainer.appendChild(createCard(ticker, cur));
+            });
+        }
+
+        function createCard(ticker, cur) {
+            const card = document.createElement('div');
+            card.className = 'currency-card gradient-border p-4';
+            card.dataset.ticker = ticker;
+            const pi = getPriceDisplay(ticker);
+            card.innerHTML = `
+                <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center gap-2">
+                        <span class="text-2xl">${cur.flag}</span>
+                        <div><h3 class="font-bold text-base">${ticker}</h3><p class="text-xs text-slate-400">${cur.name}</p></div>
+                    </div>
+                    <span class="text-xs px-2 py-0.5 rounded-full ${cur.type === 'crypto' ? 'bg-purple-500/20 text-purple-300' : 'bg-cyan-500/20 text-cyan-300'}">
+                        ${cur.type === 'crypto' ? 'Крипто' : 'Фиат'}
+                    </span>
+                </div>
+                <div class="space-y-1">
+                    <div class="flex items-baseline justify-between">
+                        <span class="text-2xl font-bold font-mono">${pi.price}</span>
+                        <span class="text-sm ${pi.changeClass}">${pi.change}</span>
+                    </div>
+                    <p class="text-xs text-slate-500">${pi.subtitle}</p>
+                </div>`;
+            return card;
+        }
+
+        function getPriceDisplay(ticker) {
+            const cur = CURRENCIES[ticker];
+            let price = '—', change = '', changeClass = '', subtitle = 'Загрузка...';
+            if (cur.type === 'crypto') {
+                const id = API.getCryptoId(ticker);
+                if (id && ratesData.crypto && ratesData.crypto[id]) {
+                    const d = ratesData.crypto[id];
+                    price = formatPrice(d.usd);
+                    const ch = d.usd_24h_change;
+                    if (ch != null) { change = `${ch >= 0 ? '+' : ''}${ch.toFixed(2)}%`; changeClass = ch >= 0 ? 'price-up' : 'price-down'; }
+                    subtitle = 'Цена в USD (24ч)';
+                }
+            } else {
+                if (ratesData.fiat) {
+                    if (ticker === 'USD') { price = '$1.00'; subtitle = 'Базовая валюта'; }
+                    else if (ratesData.fiat[ticker]) { price = formatPrice(ratesData.fiat[ticker]); subtitle = `1 USD = ${ratesData.fiat[ticker].toFixed(4)} ${ticker}`; }
+                }
+            }
+            return { price, change, changeClass, subtitle };
+        }
+
+        function formatPrice(value) {
+            if (value == null) return '—';
+            if (value >= 1000) return '$' + value.toLocaleString('en-US', { maximumFractionDigits: 2 });
+            if (value >= 1) return '$' + value.toFixed(2);
+            return '$' + value.toFixed(6);
+        }
+
+        function handleSearch() {
+            const q = searchInput.value.trim().toLowerCase();
+            cardsContainer.querySelectorAll('.currency-card').forEach(card => {
+                const t = card.dataset.ticker.toLowerCase();
+                const n = CURRENCIES[card.dataset.ticker]?.name.toLowerCase() || '';
+                card.style.display = (!q || t.includes(q) || n.includes(q)) ? '' : 'none';
+            });
+        }
+
+        function populateConverterSelects() {
+            const tickers = Object.keys(CURRENCIES);
+            [convertFrom, convertTo].forEach(select => {
+                select.innerHTML = '';
+                tickers.forEach(t => {
+                    const opt = document.createElement('option');
+                    opt.value = t;
+                    opt.textContent = `${CURRENCIES[t].flag} ${t} — ${CURRENCIES[t].name}`;
+                    select.appendChild(opt);
+                });
+            });
+            convertFrom.value = 'USD';
+            convertTo.value = 'BTC';
+        }
+
+        async function runConversion() {
+            const amount = parseFloat(convertAmount.value);
+            if (isNaN(amount) || amount < 0) { convertResult.textContent = 'Некорректная сумма'; return; }
+            convertResult.innerHTML = '<span class="pulse-loading text-slate-400">Считаю...</span>';
+            const result = await API.convert(amount, convertFrom.value, convertTo.value);
+            if (result === null) { convertResult.textContent = 'Ошибка конвертации'; }
+            else { convertResult.textContent = `${result >= 1 ? result.toLocaleString('en-US', { maximumFractionDigits: 4 }) : result.toFixed(8)} ${convertTo.value}`; }
+        }
+
+        async function loadRates() {
+            const [fiat, crypto] = await Promise.all([API.fetchFiatRates('USD'), API.fetchCryptoPrices()]);
+            ratesData.fiat = fiat;
+            ratesData.crypto = crypto;
+            renderCards();
+        }
+
+        function startAutoRefresh() { if (refreshTimer) clearInterval(refreshTimer); refreshTimer = setInterval(loadRates, 60000); }
+
+        settingsBtn.addEventListener('click', openSettings);
+        closeModal.addEventListener('click', closeSettings);
+        modalOverlay.addEventListener('click', closeSettings);
+        searchInput.addEventListener('input', handleSearch);
+        convertAmount.addEventListener('input', runConversion);
+        convertFrom.addEventListener('change', runConversion);
+        convertTo.addEventListener('change', runConversion);
+        swapBtn.addEventListener('click', () => { const tmp = convertFrom.value; convertFrom.value = convertTo.value; convertTo.value = tmp; runConversion(); });
+        document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeSettings(); });
+
+        populateConverterSelects();
+        renderCards();
+        loadRates();
+        startAutoRefresh();
+    })();
+    </script>
+</body>
+</html>
