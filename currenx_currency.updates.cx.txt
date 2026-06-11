@@ -17,4 +17,12 @@
 - LocalStorage for saving selected currencies
 - Monolithic build: fullfile_0.0.0.1.html
 
+[v0.0.2] — 2026-06-11
+----------------------
+- Fix: PWA install not working — replaced data-URI SVG icons with real PNG files (icon-192.png, icon-512.png)
+- Fix: manifest.json paths changed from absolute to relative (works with subdirectory hosting)
+- Added manifest id, scope fields for better PWA compatibility
+- Added apple-touch-icon for iOS
+- Monolithic file now also registers service worker and links manifest
+
 ============================================
