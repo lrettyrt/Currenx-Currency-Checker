@@ -1,11 +1,13 @@
 const CACHE_NAME = 'currenx-v0.0.1';
 const STATIC_ASSETS = [
-    '/',
-    '/index.html',
-    '/style.css',
-    '/app.js',
-    '/api.js',
-    '/manifest.json',
+    './',
+    './index.html',
+    './style.css',
+    './app.js',
+    './api.js',
+    './manifest.json',
+    './icon-192.png',
+    './icon-512.png',
 ];
 
 // Install: cache static assets
