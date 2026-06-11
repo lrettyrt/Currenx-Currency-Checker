@@ -1,0 +1,20 @@
+============================================
+  CURRENX — Currency Tracker Update Log
+============================================
+
+[v0.0.1] — 2026-06-11
+----------------------
+- Initial release
+- Dark modern UI with Tailwind CSS
+- Fiat currencies: USD, EUR, GBP, JPY, RUB, CNY, CHF, CAD, AUD, TRY
+- Cryptocurrencies: BTC, ETH, SOL, BNB, XRP, ADA, DOGE, DOT, MATIC, LTC, AVAX, LINK, UNI, ATOM, TON
+- Toggle checkboxes to show/hide currency cards
+- Search by ticker name
+- Quick currency converter (fiat ↔ crypto)
+- Data sources: CoinGecko API (crypto), ExchangeRate-API (fiat)
+- Auto-refresh every 60 seconds
+- PWA support: manifest.json + service-worker.js (installable on PC)
+- LocalStorage for saving selected currencies
+- Monolithic build: fullfile_0.0.0.1.html
+
+============================================
